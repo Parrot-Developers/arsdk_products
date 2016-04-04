@@ -86,8 +86,8 @@ function _restart()
 {
 	local product=$1; shift
 	local variant=$1; shift
-	echo >&2 "> ${BASH_SOURCE} -p ${product}-${variant} "$@""
-	PRODUCT=${product} VARIANT=${variant} ${BASH_SOURCE} -p ${product}-${variant} "$@"
+	echo >&2 "> ${BASH_SOURCE} -p ${product}-${variant} $@"
+	PRODUCT=${product} VARIANT=${variant} ${BASH_SOURCE} -p ${product}-${variant} $@
 }
 
 ################################################################################
@@ -117,41 +117,37 @@ function _launch_alchemake()
 ################################################################################
 function _build_android_jni()
 {
+    DIR=$1
     echo >&2 "> ndk-build"
-    DIRS=$(find ${TOP_DIR}/packages/Samples/ -name 'Android.mk' -print0 | xargs -0 -n1 dirname)
-    for DIR in ${DIRS}
-    do
-        cd ${DIR}
-        ${ANDROID_NDK_PATH}/ndk-build
-    done
+    cd ${DIR}
+    ${ANDROID_NDK_PATH}/ndk-build
     cd ${TOP_DIR}
 }
 
 ################################################################################
 ################################################################################
-function _build_android_samples()
+function _build_android_sample()
 {
+    DIR=$1
     echo >&2 "> gradle"
-    DIRS=$(find ${TOP_DIR}/packages/Samples -name 'gradlew' -print0 | xargs -0 -n1 dirname)
-    for DIR in ${DIRS}
-    do
-        cd ${DIR}
-        ./gradlew assembleDebug
-    done
+    cd ${DIR}
+    ./gradlew assembleDebug
     cd ${TOP_DIR}
 }
 
 ################################################################################
 ################################################################################
-function _build_ios_samples()
+function _build_ios_sample()
 {
+    DIR=$1
     echo >&2 "> xcodebuild"
-    DIRS=$(find ${TOP_DIR}/packages/Samples -name '*.xcodeproj' -print0 | xargs -0 -n1 dirname)
-    for DIR in ${DIRS}
-    do
-        cd ${DIR}
-        xcodebuild -arch x86_64  -sdk iphonesimulator9.0
-    done
+    cd $DIR
+    if [ x${VARIANT} = xiphonesimulator ] ; then
+        xcodebuild -project SDKSample.xcodeproj -arch x86_64 -sdk ${VARIANT} -configuration DebugWithLocalSDK 
+    else
+        xcodebuild -project SDKSample.xcodeproj -sdk iphoneos -configuration DebugWithLocalSDK 
+    fi
+    
     cd ${TOP_DIR}
 }
 
@@ -180,29 +176,27 @@ _set_combo ${opt_product_variant}
 
 if [ "${PRODUCT}" = "forall" ]; then
 	for product in $(_get_products); do
-		_restart ${product} "forall" "$@"
+		_restart ${product} "forall -t ${opt_task}"
 	done
 elif [ "${VARIANT}" = "forall" ]; then
 	for variant in $(_get_variants ${PRODUCT}); do
-		_restart ${PRODUCT} ${variant} "$@"
+		_restart ${PRODUCT} ${variant} "-t ${opt_task}"
 	done
 
 	if [ "${PRODUCT}" = "Android" ]; then
 		if [ "${opt_task}" = "build-jni" ]; then
-			_build_android_jni
-		elif [ "${opt_task}" = "build-samples" ]; then
-			_build_android_jni
-			_build_android_samples
+			_build_android_jni ${TOP_DIR}/packages/ARSDK3/arsdk
+		elif [ "${opt_task}" = "build-sample" ]; then
+			_build_android_jni ${TOP_DIR}/packages/ARSDK3/arsdk
+			_build_android_sample ${TOP_DIR}/packages/Samples/Android/SDKSample/buildWithLocalSDK/
 		fi
 	fi
 else
 	_launch_alchemake "$@"
 
 	if [ "${PRODUCT}" = "iOS" ]; then
-		if [ "${VARIANT}" = "iphonesimulator" ]; then
-			if [ "${opt_task}" = "build-samples" ]; then
-				_build_ios_samples
-			fi
+		if [ "${opt_task}" = "build-sample" ]; then
+			_build_ios_sample ${TOP_DIR}/packages/Samples/iOS/SDKSample
 		fi
 	fi
 fi
