@@ -22,6 +22,10 @@ def create_native_compat_symlink():
     dragon.relative_symlink(os.path.join(dragon.OUT_DIR),
             os.path.join(dragon.OUT_DIR, "..", "Unix-base"))
 
+def create_windows_compat_symlink():
+    dragon.relative_symlink(os.path.join(dragon.OUT_DIR),
+            os.path.join(dragon.OUT_DIR, "..", "Windows-base"))
+
 #===============================================================================
 #===============================================================================
 def setup_android_abi(task, abi):
@@ -127,5 +131,21 @@ if dragon.VARIANT == "native":
     dragon.add_meta_task(
         name="clean-sdk",
         desc = "Clean native sdk",
+        subtasks=["alchemy clobber"]
+    )
+
+if dragon.VARIANT == "windows":
+    dragon.add_alchemy_task(
+        name = "build-sdk",
+        desc = "Cross-compile sdk for windows",
+        product = dragon.PRODUCT,
+        variant = dragon.VARIANT,
+        defargs = ["all"],
+        posthook = lambda task, args: create_windows_compat_symlink(),
+        weak = True,
+    )
+    dragon.add_meta_task(
+        name="clean-sdk",
+        desc="Clean windows SDK",
         subtasks=["alchemy clobber"]
     )
